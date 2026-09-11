@@ -1,0 +1,25 @@
+// Spike isolado — RealtimeHub DO + WebSocket Hibernation.
+// Roda sozinho (não depende do app Next). `npm i && npm run dev` → abre a URL.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "spike-realtime-do",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-01",
+
+  // Guardrail: cap de CPU. Broadcast é O(conexões), rápido.
+  "limits": { "cpu_ms": 50 },
+
+  // Página de teste servida como asset estático (request grátis, não invoca o Worker).
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+
+  // O hub: 1 instância (single-tenant) via idFromName('crm').
+  "durable_objects": {
+    "bindings": [{ "name": "REALTIME_HUB", "class_name": "RealtimeHub" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RealtimeHub"] }]
+}

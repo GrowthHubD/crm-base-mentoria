@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spike — RealtimeHub DO</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#0b0e14; --card:#151a23; --line:#232a36; --ink:#e6edf3; --mut:#8b98a9; --acc:#3b82f6; --ok:#22c55e; --off:#ef4444; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:15px/1.5 ui-sans-serif,system-ui,sans-serif; background:var(--bg); color:var(--ink); padding:24px; }
+    .wrap { max-width:760px; margin:0 auto; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    p.sub { color:var(--mut); margin:0 0 20px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+    .status { display:flex; align-items:center; gap:8px; font-weight:600; }
+    .dot { width:10px; height:10px; border-radius:50%; background:var(--off); transition:background .2s; }
+    .dot.on { background:var(--ok); box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 25%,transparent); }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    button { font:inherit; font-weight:600; border:1px solid var(--line); background:#1e2633; color:var(--ink); padding:8px 12px; border-radius:8px; cursor:pointer; }
+    button:hover { border-color:var(--acc); }
+    button.emit { border-color:var(--acc); background:color-mix(in srgb,var(--acc) 18%,#1e2633); }
+    #log { list-style:none; margin:0; padding:0; max-height:340px; overflow:auto; }
+    #log li { padding:8px 10px; border-bottom:1px solid var(--line); font-family:ui-monospace,monospace; font-size:13px; }
+    #log li:first-child { animation:flash .8s ease; }
+    @keyframes flash { from { background:color-mix(in srgb,var(--acc) 30%,transparent); } to { background:transparent; } }
+    .ev { color:var(--acc); font-weight:700; }
+    .meta { color:var(--mut); }
+    .hint { color:var(--mut); font-size:13px; margin-top:8px; }
+    code { background:#0b0e14; padding:1px 5px; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>RealtimeHub — spike de WebSocket em Durable Object</h1>
+    <p class="sub">Prova que Workers substitui o Socket.IO do CRM: uma conexão WS por um DO com hibernation, com fan-out dos mesmos eventos.</p>
+
+    <div class="card">
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">conectando…</span></div>
+      <p class="hint">Abra esta página em <strong>duas abas</strong> e clique um botão de evento: as duas recebem (broadcast). É o <code>emitToEmpresa('crm', …)</code> de produção.</p>
+    </div>
+
+    <div class="card">
+      <strong>Disparar evento</strong> <span class="meta">(= um service/worker chamando POST /api/emit)</span>
+      <div class="row">
+        <button class="emit" data-event="message:new" data-payload='{"message":{"id":"demo","text":"Oi, tem quarto disponível?"}}'>message:new</button>
+        <button class="emit" data-event="lead:notify" data-payload='{"leadName":"Fulano","reason":"nova conversa"}'>lead:notify</button>
+        <button class="emit" data-event="lead:statusChanged" data-payload='{"leadId":"demo","status":"urgencia"}'>lead:statusChanged</button>
+        <button class="emit" data-event="lead:urgencyAlert" data-payload='{"leadId":"demo"}'>lead:urgencyAlert</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>Eventos recebidos</strong> <span class="meta" id="count">(0)</span>
+      <ul id="log"></ul>
+    </div>
+  </div>
+
+  <script>
+    const dot = document.getElementById('dot');
+    const statusText = document.getElementById('statusText');
+    const log = document.getElementById('log');
+    const count = document.getElementById('count');
+    let received = 0;
+
+    // ── Cliente realtime (isto vira o hook useRealtime() no app Next) ──
+    let ws, retry = 0, pingTimer;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/api/realtime`);
+
+      ws.onopen = () => {
+        retry = 0;
+        dot.classList.add('on');
+        statusText.textContent = 'conectado';
+        clearInterval(pingTimer);
+        pingTimer = setInterval(() => { try { ws.send('ping'); } catch {} }, 30000);
+      };
+
+      ws.onmessage = (e) => {
+        if (e.data === 'pong') return;
+        let msg; try { msg = JSON.parse(e.data); } catch { msg = { event: '?', data: e.data }; }
+        received++;
+        count.textContent = `(${received})`;
+        const li = document.createElement('li');
+        const t = new Date().toLocaleTimeString('pt-BR');
+        li.innerHTML = `<span class="meta">${t}</span> · <span class="ev">${msg.event}</span> · <span class="meta">${escapeHtml(JSON.stringify(msg.data))}</span>`;
+        log.prepend(li);
+      };
+
+      ws.onclose = () => {
+        dot.classList.remove('on');
+        statusText.textContent = 'desconectado — reconectando…';
+        clearInterval(pingTimer);
+        retry = Math.min(retry + 1, 6);
+        setTimeout(connect, 500 * 2 ** retry); // backoff exponencial
+      };
+
+      ws.onerror = () => { try { ws.close(); } catch {} };
+    }
+
+    function escapeHtml(s) { return s.replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+
+    // ── Botões de emit (server-side simulado) ──
+    document.querySelectorAll('button.emit').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await fetch('/api/emit', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ event: btn.dataset.event, data: JSON.parse(btn.dataset.payload) }),
+        });
+      });
+    });
+
+    connect();
+  </script>
+</body>
+</html>

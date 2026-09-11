@@ -1,0 +1,45 @@
+// Acesso central — seudominio.com.br
+//
+// Worker SEPARADO do CRM, e a separação é o ponto: aqui não há binding de
+// Hyperdrive, de R2, nem segredo nenhum. A página descobre de qual cliente a
+// pessoa é e redireciona; ela não tem como ler dado de cliente porque não tem
+// por onde. Isso é garantia estrutural, não disciplina.
+//
+// Só assets estáticos — sem `main`, sem código de servidor. A resolução do
+// cliente acontece no navegador (`router.js`), a partir de uma lista de
+// endereços que já são públicos.
+//
+// Deploy:  npx wrangler deploy --config central/wrangler.jsonc
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "lidy-acesso",
+  "compatibility_date": "2026-04-01",
+
+  "assets": {
+    "directory": "./public",
+    // O `/login` do CRM é servido pelos Workers dos clientes; aqui qualquer
+    // caminho cai na página de acesso, para que seudominio.com.br/login também
+    // funcione (é o endereço que as pessoas vão receber).
+    "not_found_handling": "single-page-application"
+  },
+
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+
+  // O curinga `*.seudominio.com.br` NÃO cobre o apex: `*.exemplo.com` casa
+  // www.exemplo.com e não exemplo.com. Por isso o apex precisa da própria
+  // rota — foi o que deixou seudominio.com.br em 404 depois do primeiro deploy.
+  // O apex vai como `custom_domain` e não como rota: rota exige que ALGUÉM já
+  // tenha criado o registro DNS, e para a raiz não havia nenhum — o curinga
+  // cobre subdomínio, não o apex, então seudominio.com.br respondia ENOTFOUND.
+  // `custom_domain` cria o registro junto com o deploy.
+  //
+  // `www` fica como rota comum porque o curinga já o faz resolver.
+  "routes": [
+    { "pattern": "seudominio.com.br", "custom_domain": true },
+    { "pattern": "www.seudominio.com.br/*", "zone_name": "seudominio.com.br" }
+  ]
+
+  // DNS: apontar `seudominio.com.br` (e `www`) para este Worker via Custom Domain
+  // no painel da Cloudflare, ou:
+  //   npx wrangler deployments domains add seudominio.com.br --name lidy-acesso
+}

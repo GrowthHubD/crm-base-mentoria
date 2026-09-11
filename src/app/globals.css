@@ -1,0 +1,619 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Lidy CRM — Design System
+   Base: #09090B | Marca: magenta -> roxo -> azul | Font: DM Sans + DM Mono
+
+   A marca Lidy é um GRADIENTE, não uma cor. Onde cabe superfície (botão
+   principal, barra ativa, brilho do logo) usa-se `--brand-gradient`; onde é
+   traço fino (borda, ícone, texto de destaque) usa-se `--brand-purple`, que é
+   o meio do gradiente e o que melhor lê sozinho sobre o fundo escuro.
+
+   Os nomes `--color-blue-*` foram MANTIDOS de propósito: 74 lugares os usam, e
+   renomear tudo seria uma varredura arriscada num dia de mudança visual. Eles
+   agora apontam para a marca nova — o nome ficou velho, o valor não.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Tailwind 4 theme tokens (equivalente ao tailwind.config.js v3)
+   ------------------------------------------------------------ */
+@theme {
+  --color-base: #09090B;
+  --color-card: #111116;
+  --color-card-hover: #141420;
+  --color-inner: #18181F;
+  --color-input: #1C1C28;
+
+  /* ---- Marca Lidy ---- */
+  --brand-magenta: #FF3CAC;
+  --brand-pink: #F55BC0;
+  --brand-purple: #7B43FF;
+  --brand-violet: #9154FF;
+  --brand-blue: #4F7BFF;
+  --brand-cyan: #6CE5FF;
+  --brand-gradient: linear-gradient(100deg, #FA3AAA 0%, #7B43FF 55%, #4F7BFF 100%);
+  --brand-gradient-soft: linear-gradient(135deg, rgba(255, 60, 172, 0.16), rgba(123, 67, 255, 0.10));
+  --brand-glow: rgba(145, 84, 255, 0.35);
+
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-hover: rgba(145, 84, 255, 0.22);
+  --color-border-focus: #9154FF;
+
+  /* Nomes antigos, valores da marca — ver o cabeçalho. */
+  --color-blue-primary: #7B43FF;
+  --color-blue-mid: #9154FF;
+  --color-blue-light: #C08BFF;
+  --color-blue-dark: #2A1B4D;
+  --color-blue-glow: rgba(145, 84, 255, 0.32);
+
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+  --color-text-placeholder: #475569;
+
+  --color-success-bg: #14532D;
+  --color-success-text: #4ADE80;
+  --color-warning-bg: #451A03;
+  --color-warning-text: #FBBF24;
+  --color-error-bg: #450A0A;
+  --color-error-text: #F87171;
+  --color-info-bg: #2A1B4D;
+  --color-info-text: #C08BFF;
+
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+
+  --shadow-blue-glow: 0 0 16px rgba(145, 84, 255, 0.4);
+  --shadow-blue-rest: 0 4px 20px rgba(123, 67, 255, 0.25);
+  --shadow-sidebar-active: -3px 0 12px rgba(145, 84, 255, 0.25);
+
+  --animate-pulse-dot: pulseDot 2s ease-in-out infinite;
+  --animate-slow-pulse: slowPulse 3s ease-in-out infinite;
+  --animate-soft-pulse: softPulse 3s ease-in-out infinite;
+  --animate-fade-up: fadeUp 250ms ease-out both;
+}
+
+/* ------------------------------------------------------------
+   CSS variables (legado do João, usadas em style inline)
+   ------------------------------------------------------------ */
+:root {
+  --bg-base: #09090B;
+  --bg-card: #111116;
+  --bg-card-hover: #141420;
+  --bg-inner: #18181F;
+  --bg-input: #1C1C28;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(145, 84, 255, 0.2);
+  --border-focus: #9154FF;
+  --blue-primary: #7B43FF;
+  --blue-mid: #9154FF;
+  --blue-light: #C08BFF;
+  --blue-dark: #2A1B4D;
+  --blue-glow: rgba(145, 84, 255, 0.3);
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-placeholder: #475569;
+
+  /* Acento da marca em três pesos + versões RGB (para rgba(var(...),a)).
+     Os componentes usam ESTAS variáveis; os valores aqui são a Lidy. A marca
+     de outro cliente só sobrescreve — ver o bloco [data-marca] no fim. */
+  --accent: #7B43FF;
+  --accent-mid: #9154FF;
+  --accent-light: #C08BFF;
+  --accent-deep: #2A1B4D;
+  --accent-rgb: 123,67,255;
+  --accent-mid-rgb: 145,84,255;
+  --accent-light-rgb: 192,139,255;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(123, 67, 255, 0.05) 0%, transparent 55%),
+    var(--bg-base);
+}
+
+/* ------------------------------------------------------------
+   Scrollbar
+
+   Duas sintaxes, não uma escolha: `::-webkit-scrollbar` é ignorado pelo
+   Firefox, e `scrollbar-color` é o padrão que ele entende. Sem o par, o
+   Firefox cai na barra cinza do sistema — que destoa da paleta inteira.
+   ------------------------------------------------------------ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(145, 84, 255, 0.35) transparent;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(145, 84, 255, 0.25);
+  border-radius: 3px;
+  transition: background 200ms ease;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(145, 84, 255, 0.6); }
+/* Cantos e botões de seta: o Firefox não os desenha, o Chromium sim — e o
+   canto cinza aparece onde as duas barras se encontram em tabela larga. */
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; }
+
+/* Kanban columns — scrollbar herda a cor da própria coluna (novos verde,
+   prioridade amarelo, urgência vermelho). Firefox usa scrollbar-color;
+   Chromium/Safari usa as regras ::-webkit-scrollbar-thumb. */
+.kanban-scroll[data-tone="info"] { scrollbar-color: rgba(0, 212, 146, 0.45) transparent; }
+.kanban-scroll[data-tone="warn"] { scrollbar-color: rgba(217, 157, 0, 0.45) transparent; }
+.kanban-scroll[data-tone="err"]  { scrollbar-color: rgba(255, 96, 96, 0.5) transparent; }
+
+.kanban-scroll[data-tone="info"]::-webkit-scrollbar-thumb { background: rgba(0, 212, 146, 0.45); }
+.kanban-scroll[data-tone="info"]::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 146, 0.75); }
+.kanban-scroll[data-tone="warn"]::-webkit-scrollbar-thumb { background: rgba(217, 157, 0, 0.45); }
+.kanban-scroll[data-tone="warn"]::-webkit-scrollbar-thumb:hover { background: rgba(217, 157, 0, 0.75); }
+.kanban-scroll[data-tone="err"]::-webkit-scrollbar-thumb { background: rgba(255, 96, 96, 0.5); }
+.kanban-scroll[data-tone="err"]::-webkit-scrollbar-thumb:hover { background: rgba(255, 96, 96, 0.8); }
+
+button, a, [role="button"], [data-clickable] { cursor: pointer; }
+
+/* ------------------------------------------------------------
+   Inputs / Textareas / Selects
+   ------------------------------------------------------------ */
+input, textarea, select {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-family: inherit;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+input::placeholder, textarea::placeholder { color: var(--text-placeholder); }
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(145, 84, 255, 0.18);
+}
+
+/* ------------------------------------------------------------
+   Component classes
+   ------------------------------------------------------------ */
+.card-surface {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+.card-surface:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--blue-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  border: 0;
+  box-shadow: 0 4px 20px rgba(123, 67, 255, 0.25);
+  transition: all 150ms ease-out;
+}
+.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 16px rgba(145, 84, 255, 0.5);
+}
+.btn-primary:active { transform: scale(0.97); }
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+  border: 1px solid var(--border-subtle);
+  transition: all 150ms ease-out;
+}
+.btn-outline:hover {
+  background: rgba(123, 67, 255, 0.12);
+  border-color: var(--blue-light);
+  color: var(--text-primary);
+}
+.btn-outline:active { transform: scale(0.97); }
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: transparent;
+  color: #F87171;
+  font-weight: 500;
+  font-size: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  transition: all 150ms ease-out;
+}
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #F87171;
+}
+
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.kpi-number {
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+/* ------------------------------------------------------------
+   Stagger animation (até 10 filhos)
+   ------------------------------------------------------------ */
+.stagger > * { opacity: 0; animation: fadeUp 320ms ease-out forwards; }
+.stagger > *:nth-child(1) { animation-delay: 40ms; }
+.stagger > *:nth-child(2) { animation-delay: 100ms; }
+.stagger > *:nth-child(3) { animation-delay: 160ms; }
+.stagger > *:nth-child(4) { animation-delay: 220ms; }
+.stagger > *:nth-child(5) { animation-delay: 280ms; }
+.stagger > *:nth-child(6) { animation-delay: 340ms; }
+.stagger > *:nth-child(7) { animation-delay: 400ms; }
+.stagger > *:nth-child(8) { animation-delay: 460ms; }
+.stagger > *:nth-child(9) { animation-delay: 520ms; }
+.stagger > *:nth-child(10) { animation-delay: 580ms; }
+
+/* ------------------------------------------------------------
+   Keyframes
+   ------------------------------------------------------------ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0; }
+}
+@keyframes slowPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+@keyframes softPulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+@keyframes sweep {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Pulso da coluna URGÊNCIA quando há leads.
+   Aplica em um overlay absoluto (pointer-events:none) que cobre a coluna,
+   nunca na coluna em si — isso evita conflitos de layout que já bugaram a
+   renderização antes. Anima da apresentação opaca/dessaturada → brilhosa
+   /saturada e volta. */
+@keyframes urgencyGlow {
+  0%, 100% {
+    border-color: rgba(255, 96, 96, 0.25);
+    box-shadow: 0 0 0 0 rgba(255, 96, 96, 0), inset 0 0 0 0 rgba(255, 96, 96, 0);
+    background-color: rgba(255, 96, 96, 0.015);
+  }
+  50% {
+    border-color: rgba(255, 96, 96, 0.95);
+    box-shadow:
+      0 0 28px 4px rgba(255, 96, 96, 0.55),
+      inset 0 0 14px 0 rgba(255, 96, 96, 0.15);
+    background-color: rgba(255, 96, 96, 0.07);
+  }
+}
+.urgency-glow {
+  border: 1.5px solid rgba(255, 96, 96, 0.35);
+  animation: urgencyGlow 1.6s ease-in-out infinite;
+  z-index: 0;
+}
+
+.glow-sweep {
+  background-image: linear-gradient(90deg, transparent 0%, rgba(145, 84, 255, 0.18) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: sweep 800ms ease-out;
+}
+
+/* ------------------------------------------------------------
+   Reduced motion
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ============================================================
+   Loading — três orbes em órbita
+   ============================================================
+   Substitui os "Carregando…" em texto. A animação é puramente CSS: sem
+   biblioteca, sem SVG e sem JS, o que faz o indicador aparecer no primeiro
+   frame — um spinner que só anima depois do JS carregar chega tarde
+   justamente quando a espera é maior.
+
+   `prefers-reduced-motion` respeitado: quem pediu menos movimento recebe os
+   pontos pulsando no lugar de girando. */
+.orbes {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.orbes .orbe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 9999px;
+  background: currentColor;
+  /* Herda a cor do texto do contexto — assim o indicador acompanha a cor de
+     onde estiver (texto secundário, botão primário, aviso) sem prop de cor. */
+  color: inherit;
+  transform-origin: 0 0;
+  animation: orbita 1.2s linear infinite;
+  opacity: 0.85;
+}
+
+@keyframes orbita {
+  0%   { transform: rotate(0deg)   translateX(0.62em) rotate(0deg)   scale(0.7); opacity: 0.35; }
+  50%  { transform: rotate(180deg) translateX(0.62em) rotate(-180deg) scale(1);   opacity: 1;    }
+  100% { transform: rotate(360deg) translateX(0.62em) rotate(-360deg) scale(0.7); opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbes .orbe {
+    animation: pulso 1.4s ease-in-out infinite;
+    transform: translate(-50%, -50%);
+  }
+  .orbes .orbe:nth-child(1) { left: 20%; }
+  .orbes .orbe:nth-child(2) { left: 50%; }
+  .orbes .orbe:nth-child(3) { left: 80%; }
+  @keyframes pulso {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 1; }
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   DENSIDADE DO QUADRO — as duas aparências do kanban
+
+   Existem duas, e a diferença é só de medida. O CRM de atendimento tem poucas
+   colunas e o atendente lê o card inteiro: cabe uma grade de três colunas com
+   card espaçoso. O de prospecção tem quinze colunas e o SDR varre o funil de
+   ponta a ponta: precisa de faixa horizontal e card apertado.
+
+   Mora aqui, e não em `if` espalhado pelo componente, porque são ~20 medidas.
+   Condicional em cada uma tornaria impossível responder "como está o quadro do
+   cliente X" sem ler o arquivo inteiro. O componente usa `var(--k-*)`; quem
+   escolhe é o `data-kanban` no elemento raiz, decidido no SERVIDOR (ver
+   `lib/kanban-densidade.ts` e o layout do dashboard).
+
+   O padrão é o CONFORTÁVEL — o formato que os clientes de atendimento já
+   tinham. Um deploy que esqueça o flag devolve a aparência conhecida, e não a
+   de outro cliente.
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Coluna */
+  --k-col-w: 340px;        /* largura no desktop */
+  --k-col-w-mob: 88%;      /* largura no celular (faixa deslizante) */
+  --k-col-radius: 1rem;
+  --k-col-head-px: 1rem;
+  --k-col-head-py: 0.75rem;
+  --k-col-head-gap: 0.375rem;
+  --k-col-title: 14px;
+  --k-col-sub: 11px;
+  --k-col-sub-gap: 0.75rem;
+  --k-col-badge-h: 1.25rem;
+  --k-col-badge-min: 20px;
+  --k-col-badge-px: 0.375rem;
+  --k-col-badge-fs: 11px;
+  --k-col-list-gap: 0.75rem;
+  --k-col-list-p: 0.75rem;
+  --k-faixa-gap: 1rem;
+
+  /* Card */
+  --k-card-radius: 0.75rem;
+  --k-card-px: 1rem;
+  --k-card-py: 1rem;
+  --k-card-head-mb: 0.625rem;
+  --k-card-head-gap: 0.75rem;
+  --k-card-avatar: 2.5rem;
+  --k-card-avatar-fs: 12px;
+  --k-card-title: 13.5px;
+  --k-card-sub: 11.5px;
+  --k-card-prev-mb: 0.75rem;
+  --k-card-prev-fs: 12.5px;
+  --k-card-pills-mb: 0.5rem;
+  --k-card-pills-gap: 0.375rem;
+  --k-card-pill-px: 0.5rem;
+  --k-card-pill-py: 0.125rem;
+  --k-card-pill-fs: 10.5px;
+}
+
+[data-kanban='compacto'] {
+  --k-col-w: 248px;
+  --k-col-w-mob: 82%;
+  --k-col-radius: 0.75rem;
+  --k-col-head-px: 0.625rem;
+  --k-col-head-py: 0.5rem;
+  --k-col-head-gap: 0.25rem;
+  --k-col-title: 12px;
+  --k-col-sub: 10px;
+  --k-col-sub-gap: 0.5rem;
+  --k-col-badge-h: 1rem;
+  --k-col-badge-min: 16px;
+  --k-col-badge-px: 0.25rem;
+  --k-col-badge-fs: 10px;
+  --k-col-list-gap: 0.375rem;
+  --k-col-list-p: 0.5rem;
+  --k-faixa-gap: 0.625rem;
+
+  --k-card-radius: 0.5rem;
+  --k-card-px: 0.5rem;
+  --k-card-py: 0.375rem;
+  --k-card-head-mb: 0.25rem;
+  --k-card-head-gap: 0.375rem;
+  --k-card-avatar: 1.5rem;
+  --k-card-avatar-fs: 9.5px;
+  --k-card-title: 12px;
+  --k-card-sub: 10.5px;
+  --k-card-prev-mb: 0.375rem;
+  --k-card-prev-fs: 11px;
+  --k-card-pills-mb: 0.25rem;
+  --k-card-pills-gap: 0.25rem;
+  --k-card-pill-px: 0.375rem;
+  --k-card-pill-py: 0;
+  --k-card-pill-fs: 9.5px;
+}
+
+/* Estrutura — o que não é medida e por isso não cabe numa variável. */
+
+/* Confortável no desktop: grade de três colunas, como sempre foi. No compacto
+   isso viraria três colunas de quinze visíveis por vez, com scroll vertical
+   dentro de cada uma; a faixa horizontal é o que deixa o funil legível. */
+@media (min-width: 1024px) {
+  [data-kanban='confortavel'] .kanban-faixa {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+    padding-bottom: 0;
+  }
+  [data-kanban='confortavel'] .kanban-faixa > * {
+    width: auto;
+    flex-shrink: 1;
+  }
+}
+
+/* Botões "Mover pra…" no card. O time de atendimento usa; no funil de vendas o
+   cliente pediu só o arraste. O arraste funciona nos dois. */
+@media (min-width: 640px) {
+  [data-kanban='compacto'] .kanban-mover {
+    display: none;
+  }
+}
+
+/* A linha de preview: duas linhas no confortável, uma no compacto. */
+.kanban-preview { -webkit-line-clamp: 2; }
+[data-kanban='compacto'] .kanban-preview { -webkit-line-clamp: 1; }
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+   MARCA POR DEPLOY — [data-marca] no <html>
+
+   Mesmo desenho do data-kanban: o layout raiz estampa o atributo lido de
+   UI_MARCA no SERVIDOR (um build, sete Workers), e a diferença de identidade
+   mora neste bloco único. Sem o atributo, tudo acima vale como sempre valeu —
+   a Lidy é o padrão, e um deploy que esqueça a variável mostra a cara que o
+   cliente já conhecia.
+
+   `html[data-marca=...]` ganha de `:root` por especificidade (0,1,1 > 0,1,0),
+   que é exatamente o que permite sobrescrever os tokens do @theme sem tocar
+   neles.
+
+   ACME (Acme): preto, branco e vermelho — do logotipo. O tema segue
+   escuro; o que muda é o acento: onde a Lidy é roxa, a Acme é vermelha.
+   ──────────────────────────────────────────────────────────────────────────── */
+html[data-marca='acme'] {
+  --brand-magenta: #FF3B4A;
+  --brand-pink: #F0554F;
+  --brand-purple: #D9142B;
+  --brand-violet: #E11D2E;
+  --brand-blue: #B0111F;
+  --brand-cyan: #FF8B94;
+  --brand-gradient: linear-gradient(100deg, #FF3B4A 0%, #D9142B 55%, #8C0F1E 100%);
+  --brand-gradient-soft: linear-gradient(135deg, rgba(255, 59, 74, 0.16), rgba(217, 20, 43, 0.10));
+  --brand-glow: rgba(225, 29, 46, 0.35);
+
+  --color-border-hover: rgba(225, 29, 46, 0.22);
+  --color-border-focus: #E11D2E;
+  --color-blue-primary: #D9142B;
+  --color-blue-mid: #E11D2E;
+  --color-blue-light: #FF7A85;
+  --color-blue-dark: #4A0D14;
+  --color-blue-glow: rgba(225, 29, 46, 0.32);
+  --color-info-bg: #4A0D14;
+  --color-info-text: #FF7A85;
+  --shadow-blue-glow: 0 0 16px rgba(225, 29, 46, 0.4);
+  --shadow-blue-rest: 0 4px 20px rgba(217, 20, 43, 0.25);
+  --shadow-sidebar-active: -3px 0 12px rgba(225, 29, 46, 0.25);
+
+  --border-hover: rgba(225, 29, 46, 0.2);
+  --border-focus: #E11D2E;
+  --blue-primary: #D9142B;
+  --blue-mid: #E11D2E;
+  --blue-light: #FF7A85;
+  --blue-dark: #4A0D14;
+  --blue-glow: rgba(225, 29, 46, 0.3);
+
+  --accent: #D9142B;
+  --accent-mid: #E11D2E;
+  --accent-light: #FF7A85;
+  --accent-deep: #4A0D14;
+  --accent-rgb: 217,20,43;
+  --accent-mid-rgb: 225,29,46;
+  --accent-light-rgb: 255,122,133;
+
+  /* O card "Convertidos" perde o verde e veste a marca, como os vizinhos. */
+  --kpi-ok: #FF7A85;
+  --kpi-ok-bg: rgba(225, 29, 46, 0.10);
+
+  /* O halo atrás do logo era roxo (marca Lidy); na Acme o pedido foi branco. */
+  --logo-glow: rgba(255, 255, 255, 0.30);
+}
+
+html[data-marca='acme'] body {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(217, 20, 43, 0.05) 0%, transparent 55%),
+    var(--bg-base);
+}
+
+html[data-marca='acme'] * {
+  scrollbar-color: rgba(225, 29, 46, 0.35) transparent;
+}
+
+/* Pan do quadro com o mouse (segurar num vazio e arrastar).
+   Enquanto arrasta: sem snap (o snap-mandatory brigaria com o scrollLeft a
+   cada frame e o movimento ficaria aos trancos) e sem seleção de texto (o
+   arrasto selecionaria os títulos por onde passa). */
+.kanban-panning {
+  scroll-snap-type: none;
+  cursor: grabbing;
+  user-select: none;
+}
+.kanban-panning * { cursor: grabbing !important; }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07080d">
+  <link rel="icon" type="image/png" href="/logo.png">
+  <title>LIDY — Acesso</title>
+  <meta name="description" content="Acesse o seu CRM Lidy.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/neon.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <main class="page-shell">
+    <section class="story-panel" aria-labelledby="story-title">
+      <span class="brand" aria-label="Lidy">
+        <img class="brand-logo" src="/lidy-logo-horizontal.png" alt="Lidy — CRM inteligente">
+      </span>
+
+      <div class="story-copy">
+        <span class="eyebrow"><i></i> CRM INTELIGENTE</span>
+        <h1 id="story-title">Conecte. Gerencie.<br>Transforme <span>resultados.</span></h1>
+        <p>Automatize conversas, acompanhe resultados e transforme cada contato em uma nova oportunidade.</p>
+
+        <div class="benefits">
+          <article><span class="benefit-icon">⌁</span><div><strong>Gestão sem fricção</strong><small>Organize sua operação em um só lugar.</small></div></article>
+          <article><span class="benefit-icon">◌</span><div><strong>Conversas inteligentes</strong><small>Atenda melhor e converta mais.</small></div></article>
+          <article><span class="benefit-icon">⌁</span><div><strong>Decisões em tempo real</strong><small>Dados claros para avançar com confiança.</small></div></article>
+        </div>
+      </div>
+
+      <div class="trust-badge"><span>♢</span><div><strong>Segurança e confiança</strong><small>Seus dados protegidos, sempre.</small></div></div>
+    </section>
+
+    <section class="login-panel" aria-labelledby="login-title">
+      <div class="login-content">
+        <div class="mobile-brand brand">
+          <img class="brand-logo" src="/lidy-logo-horizontal.png" alt="Lidy — CRM inteligente">
+        </div>
+
+        <div class="login-heading">
+          <span class="welcome-icon">✦</span>
+          <h2 id="login-title">Acesse o seu CRM</h2>
+          <p>Informe o seu acesso para continuarmos.</p>
+        </div>
+
+        <form id="form" novalidate>
+          <div class="field" id="campo">
+            <label for="acesso">Seu acesso</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v13H4zM4.5 6l7.5 6 7.5-6"/></svg>
+              <input id="acesso" name="acesso" type="text" autocomplete="username"
+                     autocapitalize="off" autocorrect="off" spellcheck="false"
+                     placeholder="voce@suaempresa.lidy" required>
+            </div>
+            <small class="error" id="erro"></small>
+          </div>
+
+          <button class="submit-button" type="submit"><span id="rotulo">Continuar</span><b>→</b><i></i></button>
+        </form>
+
+        <p class="signup" style="margin-top:22px">
+          A senha é pedida na próxima tela, já dentro do seu CRM.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>© 2026 LIDY CRM.</span></footer>
+
+  <script src="/router.js"></script>
+</body>
+</html>

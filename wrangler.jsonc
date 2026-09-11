@@ -1,0 +1,125 @@
+// wrangler.jsonc — CRM WhatsApp Base (Cloudflare-native)
+//
+// FASE 0: config mínima e deployável — só o app Next via OpenNext.
+// Os bindings das fases seguintes estão comentados abaixo; descomente
+// conforme cada recurso for criado (Hyperdrive, Queues, DO, R2, cron).
+// NÃO remova `limits.cpu_ms`. Rode `wrangler deploy --dry-run` antes.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "crm-base",
+  // Não aponta direto pro bundle do OpenNext: `worker-entry.js` o embrulha pra
+  // acrescentar o handler `scheduled`, que é onde o Cron Trigger cai.
+  "main": "worker-entry.js",
+  "compatibility_date": "2026-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // GUARDRAIL #1 — cap de CPU por invocação (default 30s é perigoso).
+  "limits": { "cpu_ms": 200 },
+
+  // GUARDRAIL #2 — assets do Next servidos pelo binding (requests grátis).
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+
+  // Base URL que o better-auth usa pra montar callbacks e validar origem. Sem
+  // isto ele monta redirect pra localhost e o login falha em produção.
+  // Não é segredo — é a própria URL pública. Segredos vão por `wrangler secret`.
+
+  // ── Fase 1: Postgres via Hyperdrive ──
+  // O Worker não abre TCP direto no Supabase (a conexão pendura até estourar).
+  // O Hyperdrive termina a conexão na borda e faz o pooling — sem ele o app
+  // sobe e serve HTML, mas toda rota que toca o banco dá timeout.
+  //
+  // CACHE DE CONSULTAS DESLIGADO no config (`wrangler hyperdrive update <id>
+  // --caching-disabled`). O padrão do Hyperdrive é cachear SELECT por até 60s,
+  // e num CRM isso quebra o básico: gravar e a tela seguir mostrando o valor
+  // antigo. Um sistema transacional precisa ler o que acabou de escrever.
+  //
+  // `localConnectionString` só vale para `wrangler dev`; em produção o binding
+  // usa o id acima. Precisa existir mesmo sem Postgres local, porque o build do
+  // OpenNext levanta um proxy de plataforma e recusa Hyperdrive sem fallback.
+
+  // ── Fase 4: Durable Object RealtimeHub (substitui Socket.IO) ──
+  // "durable_objects": { "bindings": [{ "name": "REALTIME_HUB", "class_name": "RealtimeHub" }] },
+  // "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RealtimeHub"] }],
+
+  // ── Mídia no R2 (binding nativo) ──
+  // Binding em vez do SDK S3: dentro do Worker não há credencial pra guardar
+  // nem assinatura pra calcular, e o acesso é local ao datacenter. O objeto
+  // NÃO é público — quem serve é `/api/media/[key]`, que é a URL que a uazapi
+  // busca no envio de mídia.
+
+  // ── Fase 2: Queues (substituem BullMQ) ──
+  // "queues": { "producers": [...], "consumers": [...] },
+
+  // ── Cron: escalação do pipeline ──
+  // A cada minuto, mesmo intervalo do repeatable job do BullMQ que isto
+  // substitui. Cai no `scheduled` de worker-entry.js.
+  "triggers": { "crons": ["* * * * *"] },
+
+  // ══════════════════════════════════════════════════════════════════════
+  // UM CLIENTE = UM ENVIRONMENT = UM WORKER SEPARADO
+  //
+  // O código acima é comum a todos — é o produto. O que muda por cliente
+  // fica aqui: nome do Worker, schema do banco, Hyperdrive e URL.
+  //
+  // `wrangler deploy --env acme` publica SOMENTE o crm-acme. Os demais
+  // seguem na versão que já estava. Atualizar todos é escolha, não efeito
+  // colateral:  for E in demo acme; do wrangler deploy --env $E; done
+  //
+  // Segredos NÃO ficam aqui — vão por `wrangler secret put X --env acme`,
+  // que grava no Worker daquele cliente e em lugar nenhum mais.
+  // ══════════════════════════════════════════════════════════════════════
+    "env": {
+    // Demonstração — dados fictícios, é o que qualquer visitante vê primeiro.
+    "demo": {
+      "name": "crm-base",
+      "vars": {
+        "NEXTAUTH_URL": "https://crm-base.SEU-SUBDOMINIO.workers.dev",
+        "APP_CLIENT_NAME": "Demo",
+        "DB_SCHEMA": "public",
+        "FEATURE_AI_AGENT": "false",
+        "FEATURE_SCHEDULING": "true",
+        "FEATURE_QUICK_REPLIES": "false",
+        "FEATURE_RANKING": "true"
+      },
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "COLE-AQUI-O-ID-DO-HYPERDRIVE",
+          "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres"
+        }
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "crm-base-media" }],
+      "triggers": { "crons": ["* * * * *"] }
+    },
+
+    // ══════════════════════════════════════════════════════════════════
+    // CLIENTE NOVO — um bloco destes por cliente, copiado e adaptado.
+    // `wrangler deploy --env <nome>` publica SOMENTE aquele Worker.
+    // Segredos NÃO ficam aqui — vão por `wrangler secret put X --env <nome>`.
+    // ══════════════════════════════════════════════════════════════════
+    "meucliente": {
+      "name": "crm-meucliente",
+      "vars": {
+        "NEXTAUTH_URL": "https://meucliente.SEU-DOMINIO.com.br",
+        "APP_CLIENT_NAME": "Meu Cliente",
+        "DB_SCHEMA": "cliente_meucliente",
+        "FEATURE_AI_AGENT": "false",
+        "FEATURE_QUICK_REPLIES": "false",
+        "FEATURE_RANKING": "true"
+      },
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "COLE-AQUI-O-ID-DO-HYPERDRIVE",
+          "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres"
+        }
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "crm-base-media" }],
+      "triggers": { "crons": ["* * * * *"] },
+      "routes": [{ "pattern": "meucliente.SEU-DOMINIO.com.br/*", "zone_name": "SEU-DOMINIO.com.br" }],
+      "workers_dev": true
+    }
+  }
+}

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."lead_channel" ADD VALUE 'email' BEFORE 'manual';
