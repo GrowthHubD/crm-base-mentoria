@@ -22,14 +22,14 @@ afterEach(() => {
 
 describe('defaultPrefix', () => {
   it('isola o backup na pasta do cliente', () => {
-    process.env.DB_SCHEMA = 'cliente_acme';
-    expect(defaultPrefix()).toBe('backups/cliente_acme');
+    process.env.DB_SCHEMA = 'cliente_acme6';
+    expect(defaultPrefix()).toBe('backups/cliente_acme6');
   });
 
   it('clientes diferentes NUNCA compartilham pasta', () => {
     process.env.DB_SCHEMA = 'cliente_acme';
     const acme = defaultPrefix();
-    process.env.DB_SCHEMA = 'cliente_acme';
+    process.env.DB_SCHEMA = 'cliente_acme4';
     const acme4 = defaultPrefix();
 
     expect(acme).not.toBe(acme4);

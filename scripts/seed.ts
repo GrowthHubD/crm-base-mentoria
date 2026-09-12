@@ -9,8 +9,9 @@
  * Uso:
  *   ADMIN_EMAIL=admin@crm.local ADMIN_PASSWORD=senha123 npm run db:seed
  *
- * Ou com defaults:
- *   npm run db:seed
+ * Sem ADMIN_PASSWORD a senha é SORTEADA e impressa uma única vez. Não existe
+ * senha padrão: um default fixo no código é a mesma senha em toda instalação
+ * que seguir o README — e este repositório é público.
  */
 import 'dotenv/config';
 import { auth } from '../src/lib/auth';
@@ -24,15 +25,15 @@ async function ensureUser(args: {
   password: string;
   name: string;
   role: 'admin' | 'attendant';
-}) {
+}): Promise<'created' | 'existed' | 'failed'> {
   const [existing] = await db.select().from(users).where(eq(users.email, args.email)).limit(1);
   if (existing) {
     await db
       .update(users)
       .set({ role: args.role, updatedAt: new Date() })
       .where(eq(users.id, existing.id));
-    console.log(`  ↳ user ${args.email} já existe — role sincronizada`);
-    return;
+    console.log(`  ↳ user ${args.email} já existe — role sincronizada, senha inalterada`);
+    return 'existed';
   }
   try {
     await auth.api.signUpEmail({
@@ -40,25 +41,27 @@ async function ensureUser(args: {
     });
   } catch (err) {
     console.error(`  ✗ falha criando ${args.email}:`, err);
-    return;
+    return 'failed';
   }
   await db
     .update(users)
     .set({ role: args.role, updatedAt: new Date() })
     .where(eq(users.email, args.email));
   console.log(`  ✓ user ${args.email} (${args.role}) criado`);
+  return 'created';
 }
 
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@crm.local';
-  const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin12345';
+  const senhaInformada = !!process.env.ADMIN_PASSWORD;
+  const adminPassword = process.env.ADMIN_PASSWORD ?? randomBytes(12).toString('base64url');
   const adminName = process.env.ADMIN_NAME ?? 'Admin';
 
   console.log('\n═══════════════════════════════════════════');
   console.log('  SEED — CRM WhatsApp');
   console.log('═══════════════════════════════════════════\n');
 
-  await ensureUser({ email: adminEmail, password: adminPassword, name: adminName, role: 'admin' });
+  const admin = await ensureUser({ email: adminEmail, password: adminPassword, name: adminName, role: 'admin' });
 
   // Atendente de exemplo — SÓ quando pedido explicitamente.
   //
@@ -83,10 +86,17 @@ async function main() {
   console.log('\n═══════════════════════════════════════════');
   console.log('  CREDENCIAIS');
   console.log('═══════════════════════════════════════════');
-  console.log(`Admin:      ${adminEmail} / ${adminPassword}`);
-  
+  if (admin === 'created') {
+    console.log(`Admin:      ${adminEmail} / ${adminPassword}`);
+    if (!senhaInformada) {
+      console.log('            (senha sorteada — guarde agora, não é gravada em lugar nenhum)');
+    }
+  } else if (admin === 'existed') {
+    console.log(`Admin:      ${adminEmail} (já existia — a senha continua a de antes)`);
+  }
+
   console.log('\nLogin: http://localhost:9876/login\n');
-  process.exit(0);
+  process.exit(admin === 'failed' ? 1 : 0);
 }
 
 main().catch((err) => {

@@ -11,8 +11,8 @@
  * "equivalente" é como o login para de funcionar sem ninguém entender por quê.
  *
  * Uso:
- *   DATABASE_URL=... DB_SCHEMA=cliente_acme npx tsx scripts/criar-usuario.ts \
- *     --email davi@acme6.crm --nome "Davi" [--papel admin] [--senha <valor>]
+ *   DATABASE_URL=... DB_SCHEMA=cliente_acme6 npx tsx scripts/criar-usuario.ts \
+ *     --email fulano@acme6.crm --nome "Fulano" [--papel admin] [--senha <valor>]
  */
 import 'dotenv/config';
 import { randomBytes, randomUUID } from 'node:crypto';

@@ -12,7 +12,7 @@
  *     inbound do lead — cobre o caso em que o marcador veio em msg anterior
  *     (ou em que a regra foi cadastrada depois do lead já ter mandado o
  *     marcador).
- *  3. Match novo sobrescreve atribuição anterior — "Davi vem 1 mês depois
+ *  3. Match novo sobrescreve atribuição anterior — "Fulano vem 1 mês depois
  *     por outra fonte, o novo valor substitui o último".
  *  4. Sem hit em nenhuma msg do histórico → no-op (mantém atribuição anterior
  *     ou deixa null se nunca teve).

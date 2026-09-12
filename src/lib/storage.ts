@@ -12,6 +12,7 @@
 // carrega os dois sob demanda, e no Worker essa função nunca é chamada porque
 // lá o R2 está sempre configurado.
 import { logger } from './logger';
+import { isReservedMediaKey } from './media-safety';
 
 async function nodeFs() {
   const [{ promises: fs }, path] = await Promise.all([import('fs'), import('path')]);
@@ -93,6 +94,9 @@ export async function uploadMedia(
 export async function readR2Media(
   key: string
 ): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  // Backups moram no bucket, mas não são mídia: nunca saem por leitura de
+  // mídia, mesmo que a rota que chama esqueça de checar.
+  if (isReservedMediaKey(key)) return null;
   const bucket = getR2Binding();
   if (!bucket) return null;
   const obj = await bucket.get(key);
@@ -141,6 +145,7 @@ async function uploadToLocal(key: string, body: Buffer, mimeType: string): Promi
  * Baixa mídia local (servida via /api/media/[key]). Retorna null se não existir.
  */
 export async function readLocalMedia(key: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  if (isReservedMediaKey(key)) return null;
   try {
     const { fs, join } = await nodeFs();
     const fullPath = join(localRoot(join), key);

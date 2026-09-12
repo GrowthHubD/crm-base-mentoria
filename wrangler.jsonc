@@ -49,6 +49,21 @@
   // NÃO é público — quem serve é `/api/media/[key]`, que é a URL que a uazapi
   // busca no envio de mídia.
 
+  // ── Backups: bucket PRIVADO, separado da mídia ──
+  // O backup diário (`modules/backup`) grava leads e conversas inteiras. Ele
+  // não pode morar no bucket de mídia: `/api/media/[key]` é pública e lê
+  // qualquer chave do binding MEDIA — o backup chegou a ficar alcançável por
+  // ali. Crie um bucket só para isso e ligue o binding em CADA env:
+  //
+  //   npx wrangler r2 bucket create crm-backups
+  //   "r2_buckets": [
+  //     { "binding": "MEDIA",   "bucket_name": "aixo-crm-media" },
+  //     { "binding": "BACKUPS", "bucket_name": "crm-backups" }
+  //   ]
+  //
+  // Sem o binding, o backup cai no MEDIA (com aviso no log) e a rota de mídia
+  // recusa o prefixo `backups/` — isso é mitigação, não isolamento.
+
   // ── Fase 2: Queues (substituem BullMQ) ──
   // "queues": { "producers": [...], "consumers": [...] },
 

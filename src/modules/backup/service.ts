@@ -54,11 +54,30 @@ interface R2Bucket {
 
 const CLOUDFLARE_CONTEXT = Symbol.for('__cloudflare-context__');
 
+let avisouBucketCompartilhado = false;
+
+/**
+ * Bucket do backup. O certo é o binding `BACKUPS`, num bucket PRIVADO só para
+ * isto — nenhuma rota pública lê dele.
+ *
+ * Sem o binding, cai no `MEDIA` para o backup não deixar de existir (perder o
+ * backup é pior que o risco), mas com aviso: o bucket de mídia é lido pela rota
+ * pública `/api/media/[key]`, que hoje recusa o prefixo `backups/` — isso é
+ * mitigação, não isolamento. Ver `wrangler.jsonc` para ligar o binding.
+ */
 function getBucket(): R2Bucket | null {
   const ctx = (globalThis as Record<symbol, unknown>)[CLOUDFLARE_CONTEXT] as
-    | { env?: { MEDIA?: R2Bucket } }
+    | { env?: { BACKUPS?: R2Bucket; MEDIA?: R2Bucket } }
     | undefined;
-  return ctx?.env?.MEDIA ?? null;
+  if (ctx?.env?.BACKUPS) return ctx.env.BACKUPS;
+  if (ctx?.env?.MEDIA) {
+    if (!avisouBucketCompartilhado) {
+      avisouBucketCompartilhado = true;
+      logger.warn('[backup] sem binding BACKUPS — gravando no bucket de mídia. Crie um bucket privado e ligue o binding BACKUPS no wrangler.jsonc.');
+    }
+    return ctx.env.MEDIA;
+  }
+  return null;
 }
 
 /**

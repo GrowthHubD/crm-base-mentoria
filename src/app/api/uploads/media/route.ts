@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth-helpers';
 import { uploadMedia } from '@/lib/storage';
+import { isActiveContentMime } from '@/lib/media-safety';
 import { transcodeToOggOpus } from '@/modules/channels/whatsapp/audio-convert';
 import { logger } from '@/lib/logger';
 
@@ -59,6 +60,13 @@ export async function POST(req: NextRequest) {
   }
 
   const inputMime = file.type || 'application/octet-stream';
+  // HTML/SVG/JS voltariam pela rota pública de mídia como documento na origem
+  // do CRM — com a sessão de quem abrisse. Não é formato que se manda por
+  // WhatsApp; recusar na entrada é o barato. A saída ainda protege o que
+  // entrar por outro caminho (ver `lib/media-safety.ts`).
+  if (isActiveContentMime(inputMime)) {
+    return NextResponse.json({ error: 'Tipo de arquivo não permitido' }, { status: 415 });
+  }
   let buffer: Buffer = Buffer.from(await file.arrayBuffer());
   let finalMime = inputMime;
   let converted = false;

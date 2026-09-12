@@ -59,24 +59,24 @@ describe('pareceRobo', () => {
 
 describe('extrairNome', () => {
   it('pega o nome de exibição', () => {
-    expect(extrairNome('Davi Peres <davi@gmail.com>')).toBe('Davi Peres');
+    expect(extrairNome('Fulano Peres <fulano@gmail.com>')).toBe('Fulano Peres');
   });
 
   it('tira as aspas que o Gmail põe quando o nome tem vírgula', () => {
-    expect(extrairNome('"Gomes, Davi" <davi@gmail.com>')).toBe('Gomes, Davi');
+    expect(extrairNome('"Gomes, Fulano" <fulano@gmail.com>')).toBe('Gomes, Fulano');
   });
 
   it('devolve null quando o cabeçalho é só o endereço', () => {
     // O chamador troca por o próprio endereço — melhor rótulo que "Sem nome".
-    expect(extrairNome('davi@gmail.com')).toBeNull();
-    expect(extrairNome('<davi@gmail.com>')).toBeNull();
+    expect(extrairNome('fulano@gmail.com')).toBeNull();
+    expect(extrairNome('<fulano@gmail.com>')).toBeNull();
   });
 });
 
 describe('extrairEndereco', () => {
   it('lê com e sem nome, sempre em minúscula', () => {
-    expect(extrairEndereco('Davi <Davi@Gmail.com>')).toBe('davi@gmail.com');
-    expect(extrairEndereco('  DAVI@GMAIL.COM ')).toBe('davi@gmail.com');
+    expect(extrairEndereco('Fulano <fulano@Gmail.com>')).toBe('fulano@gmail.com');
+    expect(extrairEndereco('  fulano@GMAIL.COM ')).toBe('fulano@gmail.com');
   });
 
   it('recusa o que não é endereço', () => {

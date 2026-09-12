@@ -148,7 +148,7 @@ export interface UazapiConnectResult {
  * Shape A (api.uazapi.com público):
  *   { status: 'connected'|'disconnected'|..., phone?, name?, connected? }
  *
- * Shape B (servidores dedicados como williphone.uazapi.com):
+ * Shape B (servidores dedicados como exemplo.uazapi.com):
  *   { instance: {...}, status: { connected: boolean, jid?, loggedIn?, resetting? } }
  *
  * Use `isStatusConnected(result)` para checar de forma agnóstica.

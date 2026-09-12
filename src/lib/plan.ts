@@ -19,7 +19,7 @@
  * A primeira versão usava `NEXT_PUBLIC_FEATURE_*`. Esse prefixo faz o Next
  * SUBSTITUIR o valor dentro do código durante o BUILD — não é lido em runtime.
  * Como um mesmo build é publicado em vários Workers (`wrangler deploy --env
- * acme`, `--env edmilson`), todos herdariam os flags de quem estava no
+ * acme`, `--env acme2`), todos herdariam os flags de quem estava no
  * `.env` na hora de compilar: dois clientes com planos diferentes receberiam
  * o mesmo menu.
  *

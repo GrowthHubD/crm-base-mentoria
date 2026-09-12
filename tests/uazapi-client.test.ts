@@ -133,7 +133,7 @@ describe('isStatusConnected', () => {
     expect(isStatusConnected({ connected: true })).toBe(true);
     expect(isStatusConnected({ connected: false })).toBe(false);
   });
-  it('shape B (williphone): status objeto com connected+loggedIn', () => {
+  it('shape B (servidor-dedicado): status objeto com connected+loggedIn', () => {
     expect(isStatusConnected({ status: { connected: true, loggedIn: true } })).toBe(true);
     expect(isStatusConnected({ status: { connected: true, loggedIn: false } })).toBe(false);
     expect(isStatusConnected({ status: { connected: false, loggedIn: true } })).toBe(false);

@@ -5,10 +5,17 @@
  * busca pra anexar a mídia numa mensagem de saída. O objeto no R2 fica privado
  * e só sai por aqui.
  *
+ * Por ser pública, o que ela NÃO faz importa tanto quanto o que faz:
+ *   - nunca serve prefixo reservado (`backups/`), mesmo que exista no bucket —
+ *     o backup diário grava o banco inteiro e chegou a ficar alcançável daqui;
+ *   - nunca devolve conteúdo ativo (HTML/SVG/JS) renderizável na origem do CRM;
+ *     tudo que não é imagem/áudio/vídeo/PDF sai como download com `nosniff`.
+ *
  * Sec: bloqueia path traversal e limita a leitura ao LOCAL_MEDIA_ROOT.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { readLocalMedia, readR2Media, getStorageBackend } from '@/lib/storage';
+import { isReservedMediaKey, mediaResponseHeaders } from '@/lib/media-safety';
 
 export async function GET(
   _req: NextRequest,
@@ -22,6 +29,11 @@ export async function GET(
     return NextResponse.json({ error: 'invalid key' }, { status: 400 });
   }
 
+  // 404 e não 403: a resposta não confirma que o objeto existe.
+  if (isReservedMediaKey(key)) {
+    return NextResponse.json({ error: 'not found' }, { status: 404 });
+  }
+
   // R2 primeiro: dentro do Worker é o único backend que existe.
   const media = (await readR2Media(key)) ??
     (getStorageBackend() === 'local' ? await readLocalMedia(key) : null);
@@ -29,10 +41,9 @@ export async function GET(
 
   return new NextResponse(media.buffer as unknown as BodyInit, {
     status: 200,
-    headers: {
-      'Content-Type': media.mimeType,
+    headers: mediaResponseHeaders(media.mimeType, {
       'Cache-Control': 'public, max-age=86400',
       'Content-Length': String(media.buffer.length),
-    },
+    }),
   });
 }

@@ -1,8 +1,9 @@
-name: Deploy CRM Acme
+# Exemplo de deploy para o Cloudflare. Acionado à mão (Actions → Run workflow).
+# Para ligar em push, troque `workflow_dispatch` por `push: { branches: [master] }`
+# DEPOIS de preencher o account ID e o secret CLOUDFLARE_API_TOKEN no repositório.
+name: Deploy CRM
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -11,22 +12,21 @@ jobs:
     permissions:
       contents: read
     env:
+      # Troque pelo account ID da sua conta Cloudflare (`npx wrangler whoami`).
       CLOUDFLARE_ACCOUNT_ID: COLE-AQUI-O-ACCOUNT-ID
+      # Só para o build do Next não quebrar — os valores reais vão por `wrangler secret`.
       BETTER_AUTH_SECRET: ci-build-placeholder-only
       ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Build OpenNext
-        run: npm run cf:build
-      - name: Deploy Worker
-        run: npx wrangler deploy --config wrangler.acme.jsonc
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run cf:build
+      - run: npx wrangler deploy --env meucliente
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

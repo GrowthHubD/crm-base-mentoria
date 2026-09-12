@@ -33,7 +33,7 @@ export const emailAccounts = pgTable(
     /** O endereço em si — é o que aparece como remetente. */
     email: text('email').notNull(),
 
-    /** Nome de exibição do remetente ("Davi | Growth Hub"). */
+    /** Nome de exibição do remetente ("Fulano | Growth Hub"). */
     displayName: text('display_name'),
 
     /**

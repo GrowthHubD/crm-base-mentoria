@@ -16,12 +16,24 @@ cloudflare-env.d.ts
 # Production
 dist/
 
-# Environment variables — NUNCA commitar
+# Environment variables — NUNCA commitar (só o .env.example é versionado)
 .env
-.env.local
-.env.*.local
-.env.development.local
-.env.production.local
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+
+# Mídia local, exportações do banco e estado autenticado de teste — contêm
+# conversa de cliente ou sessão viva; nunca entram no repositório
+tmp/
+*.ndjson
+playwright/.auth/
+test-results/
+playwright-report/
+
+# Chaves privadas
+*.pem
+*.key
 
 # MCP config (contém chaves de API)
 .mcp.json
