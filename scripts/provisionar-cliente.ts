@@ -1,10 +1,10 @@
 /**
  * Provisiona um cliente do zero até VERIFICADO NO AR, num comando.
  *
- * Uso:
- *   npm run cliente:novo -- acme2 "Acme"
- *   npm run cliente:novo -- acme4 "Acme" --so-banco     (para antes da nuvem)
- *   npm run cliente:novo -- acme "Acme"   --so-verificar (só roda a bateria)
+ * Uso (o modo é obrigatório — sem flag o script recusa rodar):
+ *   npm run cliente:novo -- acme2 "Acme" --deploy   (instalação nova completa)
+ *   npm run cliente:novo -- acme4 "Acme" --so-banco            (para antes da nuvem)
+ *   npm run cliente:novo -- acme "Acme"   --so-verificar        (só roda a bateria)
  *
  * Onze passos, e a ordem de dois deles não é preferência:
  *
@@ -54,6 +54,22 @@ if (!nome) {
   process.exit(1);
 }
 
+// Modo explícito, sempre: sem flag este script chegava a criar Hyperdrive,
+// gravar secrets, buildar e publicar o CRM E o acesso central — tudo a partir
+// de um comando que o README apresentava como "cria o banco".
+if (!flag('so-banco') && !flag('so-verificar') && !flag('deploy')) {
+  console.error('Escolha o modo: --so-banco (só banco/admin), --so-verificar (só smoke) ou --deploy (instalação nova + acesso central).');
+  process.exit(1);
+}
+if (/[\\/<>:"|?*]/.test(nome) || nome.includes('..')) {
+  console.error('nome comercial inválido: caracteres de caminho não são permitidos.');
+  process.exit(1);
+}
+if (flag('so-verificar')) {
+  execFileSync('npx', ['tsx', 'scripts/smoke.ts', slug], { stdio: 'inherit', shell: process.platform === 'win32' });
+  process.exit(0);
+}
+
 const SCHEMA = `cliente_${slug}`;
 const WORKER = `crm-${slug}`;
 const ZONA = process.env.LIDY_ZONE ?? 'seudominio.com.br';
@@ -67,6 +83,10 @@ const novaSenha = () =>
     .map(b => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 55])
     .join('');
 const SENHA = novaSenha();
+if (existsSync(PASTA)) {
+  console.error('A pasta de credenciais deste cliente já existe. Não reprovisiono nem troco chave de instalação viva.');
+  process.exit(1);
+}
 
 // ── utilidades ────────────────────────────────────────────────────────────
 let passoAtual = 0;
@@ -196,7 +216,7 @@ passo('entrada no wrangler.jsonc');
         "FEATURE_RANKING": "true"
       },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "${hyperdriveId}", "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres" }],
-      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "aixo-crm-media" }],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "aixo-crm-media" }, { "binding": "BACKUPS", "bucket_name": "crm-backups" }],
       "triggers": { "crons": ["* * * * *"] },
       "routes": [{ "pattern": "${HOST}/*", "zone_name": "${ZONA}" }]
     },

@@ -28,11 +28,9 @@ async function ensureUser(args: {
 }): Promise<'created' | 'existed' | 'failed'> {
   const [existing] = await db.select().from(users).where(eq(users.email, args.email)).limit(1);
   if (existing) {
-    await db
-      .update(users)
-      .set({ role: args.role, updatedAt: new Date() })
-      .where(eq(users.id, existing.id));
-    console.log(`  ↳ user ${args.email} já existe — role sincronizada, senha inalterada`);
+    // Conta existente não é tocada: o seed não pode promover a admin uma
+    // conta qualquer só por ter o mesmo e-mail.
+    console.log(`  ↳ user ${args.email} já existe — senha, papel e unidade preservados`);
     return 'existed';
   }
   try {

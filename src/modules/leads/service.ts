@@ -125,9 +125,14 @@ export async function deleteLead(
   const { db } = await import('@/lib/db/client');
   const { leads } = await import('@/lib/db/schema/leads');
   const { eq } = await import('drizzle-orm');
-  await db.delete(leads).where(eq(leads.id, id));
+  // O socket não consegue mais consultar a linha apagada: o recorte
+  // (unidade/dono) vai junto, vindo do próprio delete.
+  const [deleted] = await db
+    .delete(leads)
+    .where(eq(leads.id, id))
+    .returning({ unitId: leads.unitId, ownerId: leads.ownerId });
 
-  emitToEmpresa(CRM_ROOM, 'lead:deleted', { leadId: id });
+  if (deleted) emitToEmpresa(CRM_ROOM, 'lead:deleted', { leadId: id }, deleted);
   logger.info({ leadId: id, by: deletedByUserId }, '[leads] deletado (hard)');
 }
 

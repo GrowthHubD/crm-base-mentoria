@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin, type UserRole } from '@/lib/auth-helpers';
+import { unidadesAtivas } from '@/lib/units';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { users, accounts } from '@/lib/db/schema/users';
@@ -21,6 +22,11 @@ export async function PUT(
 ) {
   const guard = await requireAdmin(req);
   if ('response' in guard) return guard.response;
+  // Administrar contas é global: admin preso a uma unidade não cria conta
+  // global nem troca a senha de outra unidade para furar o recorte de leads.
+  if (unidadesAtivas() && guard.user.unitId) {
+    return NextResponse.json({ error: 'Administração de contas exige acesso global' }, { status: 403 });
+  }
 
   const { id } = await params;
   let body: { name?: string; role?: UserRole; email?: string; password?: string };
@@ -95,6 +101,11 @@ export async function DELETE(
 ) {
   const guard = await requireAdmin(req);
   if ('response' in guard) return guard.response;
+  // Administrar contas é global: admin preso a uma unidade não cria conta
+  // global nem troca a senha de outra unidade para furar o recorte de leads.
+  if (unidadesAtivas() && guard.user.unitId) {
+    return NextResponse.json({ error: 'Administração de contas exige acesso global' }, { status: 403 });
+  }
 
   const { id } = await params;
   if (id === guard.user.id) {

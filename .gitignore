@@ -26,6 +26,7 @@ dist/
 # Mídia local, exportações do banco e estado autenticado de teste — contêm
 # conversa de cliente ou sessão viva; nunca entram no repositório
 tmp/
+.test-temp/
 *.ndjson
 playwright/.auth/
 test-results/

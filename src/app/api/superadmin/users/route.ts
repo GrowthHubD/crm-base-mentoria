@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin, type UserRole } from '@/lib/auth-helpers';
+import { unidadesAtivas } from '@/lib/units';
 import { db } from '@/lib/db/client';
 import { users } from '@/lib/db/schema/users';
 import { auth } from '@/lib/auth';
@@ -14,6 +15,11 @@ const VALID_ROLES: UserRole[] = ['admin', 'attendant'];
 export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req);
   if ('response' in guard) return guard.response;
+  // Administrar contas é global: admin preso a uma unidade não cria conta
+  // global nem troca a senha de outra unidade para furar o recorte de leads.
+  if (unidadesAtivas() && guard.user.unitId) {
+    return NextResponse.json({ error: 'Administração de contas exige acesso global' }, { status: 403 });
+  }
 
   const rows = await db
     .select({
@@ -32,6 +38,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const guard = await requireAdmin(req);
   if ('response' in guard) return guard.response;
+  // Administrar contas é global: admin preso a uma unidade não cria conta
+  // global nem troca a senha de outra unidade para furar o recorte de leads.
+  if (unidadesAtivas() && guard.user.unitId) {
+    return NextResponse.json({ error: 'Administração de contas exige acesso global' }, { status: 403 });
+  }
 
   let body: {
     email?: string;

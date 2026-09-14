@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   // Custom server handles Socket.IO — Next.js runs inside it
   // Do NOT use `output: 'standalone'` or edge runtime anywhere
   experimental: {
+    cpus: 2, // limita a concorrência do build (máquina de dev com pagefile pequeno e CI)
     // Server Actions enabled by default in Next.js 15
   },
   images: {

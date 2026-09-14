@@ -8,18 +8,22 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { Server as SocketIOServer } from 'socket.io';
-import { registerSocketHandlers } from '@/lib/socket';
-import { startWorkers, stopWorkers } from '@/workers';
 import { logger } from '@/lib/logger';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = '0.0.0.0';
+const hostname = process.env.HOST || '0.0.0.0';
 const port = parseInt(process.env.PORT ?? '3000', 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(async () => {
+  // Socket e workers importam módulos que puxam `next/server`; carregados
+  // antes do `prepare()` o servidor caía na primeira requisição.
+  const [{ registerSocketHandlers, isSocketOriginAllowed }, { startWorkers, stopWorkers }] = await Promise.all([
+    import('@/lib/socket'),
+    import('@/workers'),
+  ]);
   const httpServer = createServer((req, res) => {
     const parsedUrl = parse(req.url!, true);
     handle(req, res, parsedUrl);
@@ -27,15 +31,7 @@ app.prepare().then(async () => {
 
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin:
-        process.env.NODE_ENV === 'production'
-          ? process.env.NEXTAUTH_URL
-          : [
-              'http://localhost:3000',
-              'http://localhost:3001',
-              'http://localhost:9876',
-              'http://127.0.0.1:9876',
-            ],
+      origin: (origin, callback) => callback(null, isSocketOriginAllowed(origin)),
       credentials: true,
     },
   });

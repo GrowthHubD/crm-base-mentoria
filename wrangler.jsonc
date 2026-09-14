@@ -105,7 +105,10 @@
           "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres"
         }
       ],
-      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "crm-base-media" }],
+      "r2_buckets": [
+        { "binding": "MEDIA", "bucket_name": "crm-base-media" },
+        { "binding": "BACKUPS", "bucket_name": "crm-backups" }
+      ],
       "triggers": { "crons": ["* * * * *"] }
     },
 
@@ -131,7 +134,10 @@
           "localConnectionString": "postgresql://postgres:postgres@localhost:5432/postgres"
         }
       ],
-      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "crm-base-media" }],
+      "r2_buckets": [
+        { "binding": "MEDIA", "bucket_name": "crm-base-media" },
+        { "binding": "BACKUPS", "bucket_name": "crm-backups" }
+      ],
       "triggers": { "crons": ["* * * * *"] },
       "routes": [{ "pattern": "meucliente.SEU-DOMINIO.com.br/*", "zone_name": "SEU-DOMINIO.com.br" }],
       "workers_dev": true

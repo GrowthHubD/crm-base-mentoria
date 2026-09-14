@@ -1,145 +1,205 @@
 /**
- * Socket.IO só aceita quem tem sessão, e no modo carteira só emite para quem
- * pode ver.
+ * Socket.IO sobre transporte REAL (servidor em porta efêmera de loopback):
+ * quem entra, quem recebe e quem é derrubado.
  *
- * Antes, o middleware do handshake só chamava `next()` e o cliente escolhia a
- * sala: qualquer processo conectado ao servidor Node recebia `message:new`
- * com o conteúdo das conversas, sem cookie nenhum.
+ * Duas falhas por trás destes casos: o handshake que só chamava `next()`
+ * (qualquer processo recebia `message:new`), e depois a versão por salas, que
+ * autenticava mas entregava evento de uma filial a atendente de outra e, no
+ * modo carteira, deixava o próprio dono sem evento porque os services não
+ * informavam o dono. Aqui cada caso mede a entrega de verdade, positiva e
+ * negativa, com sessão e banco simulados.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+import { createServer } from 'node:http';
+import { Server } from 'socket.io';
+import { io as connect, type Socket } from 'socket.io-client';
 
-const getSession = vi.fn();
-const selectRow = vi.fn();
-
-vi.mock('@/lib/auth', () => ({
-  auth: { api: { getSession: (...a: unknown[]) => getSession(...a) } },
+const state = vi.hoisted(() => ({
+  users: new Map<string, Record<string, unknown>>(),
+  leads: new Map<string, Record<string, unknown>>(),
+  messages: new Map<string, Record<string, unknown>>(),
+  revoked: new Set<string>(),
+  fail: false,
 }));
 
-vi.mock('@/lib/db/client', () => ({
-  db: {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          limit: async () => selectRow(),
-        }),
-      }),
-    }),
+vi.mock('@/lib/auth', () => ({
+  auth: {
+    api: {
+      getSession: async ({ headers }: { headers: Headers }) => {
+        const id = headers.get('cookie') ?? '';
+        return state.users.has(id) && !state.revoked.has(id) ? { user: { id } } : null;
+      },
+    },
   },
 }));
 
-import { authenticateSocket, registerSocketHandlers, emitToEmpresa } from '@/lib/socket';
-
-beforeEach(() => {
-  getSession.mockReset();
-  selectRow.mockReset();
-  delete process.env.FEATURE_LEAD_OWNERSHIP;
+vi.mock('@/lib/db/client', async () => {
+  const { getTableName } = await import('drizzle-orm');
+  return {
+    db: {
+      select: () => ({
+        from: (table: never) => ({
+          where: (sql: { queryChunks: { value?: string }[] }) => ({
+            limit: async () => {
+              if (state.fail) throw new Error('database unavailable');
+              const id = sql.queryChunks.find((c) => typeof c.value === 'string')?.value ?? '';
+              const name = getTableName(table);
+              const rows = name === 'users' ? state.users : name === 'leads' ? state.leads : state.messages;
+              const row = rows.get(id);
+              return row ? [row] : [];
+            },
+          }),
+        }),
+      }),
+    },
+  };
 });
 
-afterEach(() => {
-  delete (global as { io?: unknown }).io;
+import { registerSocketHandlers, emitToEmpresa, authenticateSocket } from '@/lib/socket';
+
+let server: Server;
+let url: string;
+const clients: Socket[] = [];
+
+beforeEach(async () => {
+  state.users.clear();
+  state.leads.clear();
+  state.messages.clear();
+  state.revoked.clear();
+  state.fail = false;
+  vi.stubEnv('FEATURE_UNITS', 'true');
+  vi.stubEnv('FEATURE_LEAD_OWNERSHIP', 'false');
+  vi.stubEnv('NEXTAUTH_URL', 'http://localhost:9876');
+  const http = createServer();
+  server = new Server(http);
+  registerSocketHandlers(server);
+  (globalThis as { io?: Server }).io = server;
+  await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve));
+  url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
 });
 
-describe('authenticateSocket', () => {
-  it('sem cookie: recusa sem nem consultar a sessão', async () => {
+afterEach(async () => {
+  for (const client of clients.splice(0)) client.close();
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  delete (globalThis as { io?: Server }).io;
+  vi.unstubAllEnvs();
+});
+
+async function user(id: string, role = 'attendant', unitId: string | null = 'a') {
+  state.users.set(id, { id, role, unitId });
+  const client = connect(url, { transports: ['websocket'], reconnection: false, extraHeaders: { Cookie: id } });
+  clients.push(client);
+  await new Promise<void>((resolve, reject) => {
+    client.once('connect', resolve);
+    client.once('connect_error', reject);
+  });
+  return client;
+}
+
+async function rejected(headers: Record<string, string>) {
+  const client = connect(url, { transports: ['websocket'], reconnection: false, extraHeaders: headers });
+  clients.push(client);
+  return new Promise<string>((resolve, reject) => {
+    client.once('connect_error', (e) => resolve(e.message));
+    client.once('connect', () => reject(new Error('unexpected authentication')));
+  });
+}
+
+async function deliver(event: string, payload: unknown, audience?: { unitId?: string | null; ownerId?: string | null }) {
+  const received: string[] = [];
+  for (const c of clients) c.once(event, () => received.push(c.id!));
+  await emitToEmpresa('LEGACY_ROOM', event, payload, audience);
+  // Deixa o transporte de loopback drenar antes de afirmar entrega ou ausência.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  for (const c of clients) c.removeAllListeners(event);
+  return received;
+}
+
+describe('Socket.IO autenticado sobre transporte real', () => {
+  it('recusa anônimo e sessão inventada', async () => {
     expect(await authenticateSocket(undefined)).toBeNull();
-    expect(await authenticateSocket('')).toBeNull();
-    expect(getSession).not.toHaveBeenCalled();
+    expect(await rejected({})).toBe('unauthorized');
+    expect(await rejected({ Cookie: 'invented' })).toBe('unauthorized');
   });
 
-  it('cookie sem sessão válida: recusa', async () => {
-    getSession.mockResolvedValue(null);
-    expect(await authenticateSocket('better-auth.session_token=inventado')).toBeNull();
+  it('recusa origem hostil mesmo com sessão válida', async () => {
+    state.users.set('valid', { id: 'valid', role: 'admin', unitId: null });
+    expect(await rejected({ Cookie: 'valid', Origin: 'https://attacker.invalid' })).toBe('unauthorized');
   });
 
-  it('sessão válida mas usuário sumiu do banco: recusa', async () => {
-    getSession.mockResolvedValue({ user: { id: 'u1' } });
-    selectRow.mockResolvedValue([]);
-    expect(await authenticateSocket('better-auth.session_token=ok')).toBeNull();
+  it('sessão revogada é derrubada antes do próximo evento', async () => {
+    const c = await user('one');
+    state.leads.set('l1', { unitId: 'a', ownerId: 'one' });
+    expect(await deliver('lead:updated', { leadId: 'l1' })).toContain(c.id);
+    state.revoked.add('one');
+    expect(await deliver('lead:updated', { leadId: 'l1' })).toEqual([]);
+    expect(c.connected).toBe(false);
   });
 
-  it('sessão válida: devolve id e papel vindos do banco, não do cookie', async () => {
-    getSession.mockResolvedValue({ user: { id: 'u1' } });
-    selectRow.mockResolvedValue([{ id: 'u1', role: 'admin' }]);
-    expect(await authenticateSocket('better-auth.session_token=ok')).toEqual({ id: 'u1', role: 'admin' });
-  });
-});
-
-describe('registerSocketHandlers', () => {
-  function fakeIo() {
-    const handlers: { use?: (s: unknown, n: (e?: Error) => void) => void; connection?: (s: unknown) => void } = {};
-    const io = {
-      use: (fn: typeof handlers.use) => { handlers.use = fn; },
-      on: (ev: string, fn: (s: unknown) => void) => { if (ev === 'connection') handlers.connection = fn; },
-    };
-    return { io, handlers };
-  }
-
-  it('handshake sem sessão chama next com erro', async () => {
-    const { io, handlers } = fakeIo();
-    registerSocketHandlers(io as never);
-    const next = vi.fn();
-    await handlers.use!({ id: 's1', handshake: { headers: {} }, data: {} }, next);
-    expect(next).toHaveBeenCalledOnce();
-    expect(next.mock.calls[0][0]).toBeInstanceOf(Error);
+  it('banco fora do ar: fecha, sem estourar no chamador', async () => {
+    await user('one');
+    state.fail = true;
+    expect(await deliver('message:new', { message: { leadId: 'l1' } })).toEqual([]);
   });
 
-  it('sessão válida: entra nas salas decididas pelo servidor, e join:empresa do cliente é ignorado', async () => {
-    getSession.mockResolvedValue({ user: { id: 'u1' } });
-    selectRow.mockResolvedValue([{ id: 'u1', role: 'admin' }]);
-    const { io, handlers } = fakeIo();
-    registerSocketHandlers(io as never);
-
-    const next = vi.fn();
-    const socket = {
-      id: 's1',
-      handshake: { headers: { cookie: 'better-auth.session_token=ok' } },
-      data: {} as Record<string, unknown>,
-      join: vi.fn(),
-      on: vi.fn(),
-    };
-    await handlers.use!(socket, next);
-    expect(next).toHaveBeenCalledWith();
-
-    handlers.connection!(socket);
-    const salas = socket.join.mock.calls.map((c) => c[0]);
-    expect(salas).toEqual(['empresa:crm', 'user:u1', 'role:admin']);
-
-    const joinEmpresa = socket.on.mock.calls.find((c) => c[0] === 'join:empresa')?.[1] as (id: string) => void;
-    joinEmpresa('outra-empresa');
-    expect(socket.join).toHaveBeenCalledTimes(3);
-  });
-});
-
-describe('emitToEmpresa', () => {
-  function fakeGlobalIo() {
-    const emit = vi.fn();
-    const to = vi.fn(() => ({ emit }));
-    (global as { io?: unknown }).io = { to };
-    return { to, emit };
-  }
-
-  it('sem modo carteira: sala da instância inteira', () => {
-    const { to, emit } = fakeGlobalIo();
-    emitToEmpresa('crm', 'message:new', { x: 1 }, { ownerId: 'o1' });
-    expect(to).toHaveBeenCalledWith('empresa:crm');
-    expect(emit).toHaveBeenCalledWith('message:new', { x: 1 });
+  it('mensagem vai só para a unidade do lead e para o admin global; sala pedida é ignorada', async () => {
+    const a = await user('a');
+    const b = await user('b', 'attendant', 'b');
+    const globalAdmin = await user('admin', 'admin', null);
+    const localAdmin = await user('localAdmin', 'admin', 'b');
+    b.emit('join:empresa', 'a');
+    state.leads.set('l1', { unitId: 'a', ownerId: 'a' });
+    expect((await deliver('message:new', { message: { leadId: 'l1', body: 'private' } })).sort()).toEqual(
+      [a.id, globalAdmin.id].sort()
+    );
+    expect(localAdmin.connected).toBe(true);
   });
 
-  it('modo carteira: admins + dono do lead', () => {
-    process.env.FEATURE_LEAD_OWNERSHIP = 'true';
-    const { to } = fakeGlobalIo();
-    emitToEmpresa('crm', 'lead:updated', {}, { ownerId: 'o1' });
-    expect(to).toHaveBeenCalledWith(['role:admin', 'user:o1']);
+  it('modo carteira: resolve o dono sem quarto argumento e intersecta com a unidade', async () => {
+    vi.stubEnv('FEATURE_LEAD_OWNERSHIP', 'true');
+    const a = await user('a');
+    await user('b');
+    const admin = await user('admin', 'admin', null);
+    state.leads.set('l1', { unitId: 'a', ownerId: 'a' });
+    expect((await deliver('message:new', { message: { leadId: 'l1' } })).sort()).toEqual([a.id, admin.id].sort());
+    state.leads.set('l1', { unitId: 'b', ownerId: 'a' });
+    expect(await deliver('lead:updated', { leadId: 'l1' })).toEqual([admin.id]);
   });
 
-  it('modo carteira sem dono conhecido: só admins — fecha, nunca abre', () => {
-    process.env.FEATURE_LEAD_OWNERSHIP = 'true';
-    const { to } = fakeGlobalIo();
-    emitToEmpresa('crm', 'message:new', {});
-    expect(to).toHaveBeenCalledWith(['role:admin']);
+  it('fila compartilhada continua igual quando os dois recortes estão desligados', async () => {
+    vi.stubEnv('FEATURE_UNITS', 'false');
+    const a = await user('a');
+    const b = await user('b', 'attendant', 'b');
+    expect((await deliver('lead:updated', { leadId: 'l1' })).sort()).toEqual([a.id, b.id].sort());
   });
 
-  it('sem servidor Socket.IO (Cloudflare): não faz nada', () => {
-    expect(() => emitToEmpresa('crm', 'x', {})).not.toThrow();
+  it('lead sem unidade é visível como no HTTP; lead sem dono fica só com admin no modo carteira', async () => {
+    const a = await user('a');
+    const admin = await user('admin', 'admin', null);
+    state.leads.set('l1', { unitId: null, ownerId: null });
+    expect((await deliver('lead:updated', { leadId: 'l1' })).sort()).toEqual([a.id, admin.id].sort());
+    vi.stubEnv('FEATURE_LEAD_OWNERSHIP', 'true');
+    expect(await deliver('lead:updated', { leadId: 'l1' })).toEqual([admin.id]);
+  });
+
+  it('status resolve pelo id da mensagem; exclusão usa o recorte que o service manda', async () => {
+    const a = await user('a');
+    await user('b', 'attendant', 'b');
+    state.leads.set('l1', { unitId: 'a', ownerId: 'a' });
+    state.messages.set('m1', { leadId: 'l1' });
+    expect(await deliver('message:statusChanged', { messageId: 'm1', status: 'sent' })).toEqual([a.id]);
+    state.messages.delete('m1');
+    expect(await deliver('message:deleted', { messageId: 'm1', leadId: 'l1' })).toEqual([a.id]);
+    state.leads.delete('l1');
+    expect(await deliver('lead:deleted', { leadId: 'l1' }, { unitId: 'a', ownerId: 'a' })).toEqual([a.id]);
+    expect(await deliver('lead:updated', { leadId: 'unknown' })).toEqual([]);
+  });
+
+  it('troca de unidade vale para quem já está conectado', async () => {
+    const a = await user('a');
+    state.leads.set('l1', { unitId: 'a', ownerId: 'a' });
+    expect(await deliver('lead:updated', { leadId: 'l1' })).toEqual([a.id]);
+    state.users.set('a', { id: 'a', role: 'attendant', unitId: 'b' });
+    expect(await deliver('lead:updated', { leadId: 'l1' })).toEqual([]);
   });
 });

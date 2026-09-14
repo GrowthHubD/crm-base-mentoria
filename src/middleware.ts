@@ -23,7 +23,18 @@ export async function middleware(req: NextRequest) {
   // visível nesta armadilha silenciosa; o certo é nunca deixar a sessão nascer
   // em http.
   const proto = req.headers.get('x-forwarded-proto');
-  if (proto === 'http') {
+  // Setup local não tem TLS na frente. Só dispensa o redirect quando a URL
+  // configurada da app E o host da requisição são loopback — um Host forjado
+  // não pode desligar o HTTPS em produção.
+  const loopback = new Set(['localhost', '127.0.0.1', '[::1]']);
+  let localSetup = false;
+  try {
+    const configured = new URL(process.env.BETTER_AUTH_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:9876');
+    localSetup = loopback.has(configured.hostname) && loopback.has(req.nextUrl.hostname);
+  } catch {
+    // Configuração inválida nunca dispensa o HTTPS.
+  }
+  if (proto === 'http' && !localSetup) {
     const seguro = new URL(req.url);
     seguro.protocol = 'https:';
     return NextResponse.redirect(seguro, 308);

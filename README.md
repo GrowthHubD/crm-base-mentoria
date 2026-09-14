@@ -37,17 +37,17 @@ Roda de dois jeitos, com o mesmo código:
 Requer **Node 22+** e um **PostgreSQL** (local, Neon, Supabase…). Redis é opcional.
 
 ```bash
-npm install
-cp .env.example .env
+npm ci
+npm run setup
 ```
 
-Preencha no `.env`, no mínimo:
+O `setup` cria o `.env` a partir do `.env.example` com segredos sorteados e se recusa a
+sobrescrever um arquivo existente. Funciona no PowerShell, Bash e terminal do VS Code. Abra o
+arquivo criado e preencha `DATABASE_URL` com um **banco vazio de desenvolvimento** — o usuário do
+banco precisa poder criar as tabelas.
 
-```bash
-DATABASE_URL=postgresql://...
-BETTER_AUTH_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")
-ENCRYPTION_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-```
+Não cole comandos `$(node ...)` dentro do `.env`: dotenv lê isso como texto literal.
+Não regenere `ENCRYPTION_KEY` numa instalação existente: as conexões já gravadas dependem dela.
 
 Depois:
 
@@ -62,12 +62,12 @@ Rodar o seed de novo não troca a senha de quem já existe.
 
 ## Módulos e flags
 
-Cada módulo vendido à parte nasce **desligado** (`src/lib/plan.ts`). Ligar é por instalação, no `.env` (ou nas `vars` do `wrangler.jsonc`):
+Os add-ons nascem **desligados**; agendamento e ranking fazem parte do plano base (`src/lib/plan.ts`). Ligar é por instalação, no `.env` (ou nas `vars` do `wrangler.jsonc`):
 
 | Flag | Padrão | O que liga | Precisa também de |
 |---|---|---|---|
 | `FEATURE_AI_AGENT` | off | tela `/agente-ia` e auto-resposta | `OPENROUTER_API_KEY` |
-| `FEATURE_SCHEDULING` | off | mensagens agendadas | tick do cron (abaixo) |
+| `FEATURE_SCHEDULING` | **on** | mensagens agendadas | tick do cron (abaixo) |
 | `FEATURE_FOLLOWUPS` | off | follow-ups automáticos | tick do cron |
 | `FEATURE_QUICK_REPLIES` | off | textos rápidos no composer | — |
 | `FEATURE_RANKING` | **on** | ranking de atendentes | — |
@@ -121,7 +121,9 @@ precisa ser chamado **a cada minuto** com o `CRON_SECRET`:
 * * * * * curl -s -X POST -H "x-cron-secret: $CRON_SECRET" https://SEU_HOST/api/cron/tick
 ```
 
-No Cloudflare isso é o Cron Trigger do `wrangler.jsonc` — não precisa configurar nada.
+No Cloudflare é o Cron Trigger de cada environment do `wrangler.jsonc`; grave `CRON_SECRET` como secret
+antes do deploy. Em Node, o cron do sistema não carrega o `.env`: exporte `CRON_SECRET` no ambiente do
+agendador. Teste o endpoint e confira 200 — 401 significa segredo ausente ou errado.
 
 ## Mídia e segurança
 
@@ -148,14 +150,19 @@ NODE_ENV=production PORT=9876 npm start      # ou pm2 start ecosystem.config.js
 
 Um cliente = um Worker = um `env` no `wrangler.jsonc` (nome, `DB_SCHEMA`, Hyperdrive, domínio).
 
-1. Postgres com um schema por cliente: `npm run cliente:novo -- <slug> "<Nome>"` cria schema, role e imprime a
-   string de conexão.
+1. Postgres com um schema por cliente: `npm run cliente:novo -- <slug> "<Nome>" --so-banco` cria schema, role e
+   imprime a string de conexão — só isso; sem a flag o script recusa rodar.
 2. `npx wrangler hyperdrive create <nome> --connection-string=... --caching-disabled` — **cache de consulta
    desligado**, obrigatório num CRM. Cole o `id` no env.
 3. Buckets: `npx wrangler r2 bucket create <midia>` e outro para `BACKUPS`.
 4. Segredos: `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET` (+ `META_APP_SECRET`, `OPENROUTER_API_KEY`…)
-   via `npx wrangler secret put X --env <slug>`.
+   via `npx wrangler secret put X --env <slug>`. Preserve os segredos de instalações existentes.
+   O bucket `BACKUPS` fica sem domínio público e sem acesso r2.dev; nunca use o bucket de mídia como backup.
 5. `npm run cf:build && npx wrangler deploy --env <slug>`, depois `npm run smoke -- <slug>`.
+
+O provisionamento completo (`--deploy`) cria a infra, publica o CRM **e** o acesso central — só numa
+instalação nova, depois de revisar `wrangler.jsonc`, zona, conta e nomes de bucket. `--so-verificar` roda
+apenas o smoke, contra uma instância de teste; não cria nada nem publica.
 
 Áudio/PTT gravado no composer depende de ffmpeg, que não existe no Worker — o áudio sai como anexo.
 
@@ -173,7 +180,8 @@ Um cliente = um Worker = um `env` no `wrangler.jsonc` (nome, `DB_SCHEMA`, Hyperd
 | `npm run db:studio` | UI do banco |
 | `npm run connect:cloud` | cadastra número da Cloud API |
 | `npm run cf:build` / `cf:deploy` | build OpenNext / deploy |
-| `npm run cliente:novo` | provisiona schema + role de um cliente novo |
+| `npm run cliente:novo -- <slug> "Nome" --so-banco` | prepara só banco e admin do cliente; `--deploy` faz tudo |
+| `npm run setup` | cria o `.env` com segredos sorteados (uma vez) |
 | `npm run smoke -- <env>` | bateria de fumaça contra um deploy |
 
 ## Arquitetura

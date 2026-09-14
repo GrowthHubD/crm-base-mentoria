@@ -29,7 +29,8 @@
     "smoke": "tsx scripts/smoke.ts",
     "db:index": "tsx scripts/create-messages-index.ts",
     "cliente:novo": "tsx scripts/provisionar-cliente.ts",
-    "usuario:rotacionar": "tsx scripts/rotacionar-usuario.ts"
+    "usuario:rotacionar": "tsx scripts/rotacionar-usuario.ts",
+    "setup": "node scripts/setup-local.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1038.0",

@@ -337,7 +337,8 @@ export async function deleteMessageFromCRM(messageId: string): Promise<void> {
   }
 
   await db.delete(messages).where(eq(messages.id, messageId));
-  emitToEmpresa(CRM_ROOM, 'message:deleted', { messageId });
+  // A mensagem já não existe para o socket descobrir o lead — vai no payload.
+  emitToEmpresa(CRM_ROOM, 'message:deleted', { messageId, leadId: msg.leadId });
 }
 
 /**
