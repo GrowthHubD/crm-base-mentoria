@@ -26,7 +26,7 @@ const CLIENTES = {
 /**
  * Quem usa e-mail de provedor em vez do acesso do sistema.
  *
- * `rodrigo@gmail.com` daria "gmail", que não é cliente. Exceção é uma linha, e
+ * `fulano@gmail.com` daria "gmail", que não é cliente. Exceção é uma linha, e
  * a existência dela é o motivo de recomendarmos o formato `@empresa.lidy`.
  */
 const EXCECOES = {
